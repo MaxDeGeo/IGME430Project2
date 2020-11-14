@@ -30,7 +30,7 @@ const login = (request, response) => {
 
     req.session.account = Account.AccountModel.toAPI(account);
 
-    return res.json({ redirect: '/maker' });
+    return res.json({ redirect: '/home' });
   });
 };
 
@@ -42,8 +42,11 @@ const signup = (request, response) => {
   req.body.username = `${req.body.username}`;
   req.body.pass = `${req.body.pass}`;
   req.body.pass2 = `${req.body.pass2}`;
+  req.body.email = `${req.body.email}`;
+  req.body.email2 = `${req.body.email2}`;
 
-  if (!req.body.username || !req.body.pass || !req.body.pass2) {
+  if (!req.body.username || !req.body.pass || !req.body.pass2
+    || !req.body.email || !req.body.email2) {
     return res.status(400).json({ error: 'RAWR! All fields are required' });
   }
 
@@ -51,18 +54,23 @@ const signup = (request, response) => {
     return res.status(400).json({ error: 'RAWR! Passwords do not match' });
   }
 
+  if (req.body.email !== req.body.email2) {
+    return res.status(400).json({ error: 'RAWR! Emails do not match' });
+  }
+
   return Account.AccountModel.generateHash(req.body.pass, (salt, hash) => {
     const accountData = {
       username: req.body.username,
       salt,
       password: hash,
+      email: req.body.email,
     };
 
     const newAccount = new Account.AccountModel(accountData);
     const savePromise = newAccount.save();
     savePromise.then(() => {
       req.session.account = Account.AccountModel.toAPI(newAccount);
-      res.json({ redirect: '/maker' });
+      res.json({ redirect: '/home' });
     });
 
     savePromise.catch((err) => {
@@ -88,8 +96,108 @@ const getToken = (request, response) => {
   res.json(csrfJSON);
 };
 
+const passwordChangePage = (request, response) => {
+  const req = request;
+  const res = response;
+
+  Account.AccountModel.findByUsername(req.session.username, (err) => {
+    if (err) {
+      console.log(err);
+      return res.status(400).json({ error: 'An error occurred' });
+    }
+
+    return res.render('password', { csrfToken: req.csrfToken() });
+  });
+};
+
+const passwordChange = (request, response) => {
+  const req = request;
+  const res = response;
+
+  const { _id, username } = req.session.account;
+
+  // Validate Password
+  return Account.AccountModel.authenticate(username, req.body.current, (err, account) => {
+    if (err || !account) {
+      return res.status(401).json({ error: 'Wrong password' });
+    }
+    return Account.AccountModel.generateHash(req.body.newPass, (salt, hash) => {
+      const accountData = {
+        username: account.username,
+        salt,
+        password: hash,
+        email: account.email,
+      };
+
+      Account.AccountModel.updateOne({ _id }, { $set: accountData }, (error) => {
+        if (error) {
+          console.log(err);
+          return res.render('password', { error: 'An error occurred' });
+        }
+
+        return res.render('app', { csrfToken: req.csrfToken() });
+      });
+    });
+
+    // req.session.account = Account.AccountModel.toAPI(account);
+
+    // return res.json({ redirect: '/home' });
+  });
+};
+
+const homePage = (request, response) => {
+  const req = request;
+  const res = response;
+  return res.render('app', { csrfToken: req.csrfToken() });
+};
+
+const getUser = (request, response) => {
+  const req = request;
+  const res = response;
+
+  return res.json({ username: req.session.account.username });
+};
+
+const getChat = (request, response) => {
+  const req = request;
+  const res = response;
+
+  return Account.AccountModel.findOne({ _id: req.session.account._id }, (err, doc) => {
+    if (err) {
+      console.log(err);
+      return res.status(400).json({ error: 'An error occurred' });
+    }
+
+    return res.json({ activeChat: doc.chat });
+  });
+};
+
+const setChat = (request, response) => {
+  const req = request;
+  const res = response;
+
+  const accountData = {
+    chat: req.query.chatId,
+  };
+  Account.AccountModel.updateOne({ _id: req.session.account._id },
+    { $set: accountData }, (error) => {
+      if (error) {
+        console.log(err);
+        return res.status(400).json({ error: 'An error occurred' });
+      }
+
+      return res.json({ chat: req.query.chatId });
+    });
+};
+
 module.exports.loginPage = loginPage;
 module.exports.login = login;
 module.exports.logout = logout;
 module.exports.signup = signup;
 module.exports.getToken = getToken;
+module.exports.passwordChangePage = passwordChangePage;
+module.exports.passwordChange = passwordChange;
+module.exports.homePage = homePage;
+module.exports.getUser = getUser;
+module.exports.getChat = getChat;
+module.exports.setChat = setChat;

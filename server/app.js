@@ -14,7 +14,7 @@ const redis = require('redis');
 
 const port = process.env.PORT || process.env.NODE_OIRT || 3000;
 
-const dbURL = process.env.MONGODB_URI || 'mongodb://localhost/DomoMaker';
+const dbURL = process.env.MONGODB_URI || 'mongodb://localhost/TheChatRoom';
 
 // Setup mongoose options to use newer functionality
 const mongooseOptions = {
@@ -49,6 +49,7 @@ const redisClient = redis.createClient({
 const router = require('./router.js');
 
 const app = express();
+
 app.use('/assets', express.static(path.resolve(`${__dirname}/../hosted/`)));
 app.use(favicon(`${__dirname}/../hosted/img/favicon.png`));
 app.disable('x-powered-by');
@@ -61,7 +62,7 @@ app.use(session({
   store: new RedisStore({
     client: redisClient,
   }),
-  secret: 'Domo Arigato',
+  secret: 'AOL Will Never Die',
   resave: true,
   saveUninitialized: true,
   cookie: {

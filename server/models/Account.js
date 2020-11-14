@@ -24,6 +24,15 @@ const AccountSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  chat: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Chat',
+  },
   createdDate: {
     type: Date,
     default: Date.now,
