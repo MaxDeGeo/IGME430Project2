@@ -118,7 +118,7 @@ const updateChatName = (request, response) => {
   };
 
   return Chat.ChatModel.updateOne({ _id: req.query.chatId },
-    { $set: updatedData }, (err, doc) => {
+    { $set: updatedData }, (err) => {
       if (err) {
         console.log(err);
         return res.status(400).json({ error: 'An error occurred' });
@@ -161,6 +161,8 @@ const editChatImage = async (request, response) => {
 
       return res.json({ imagePath: `assets/img/${fileName}` });
     });
+
+  return false;
 };
 
 const deleteChat = (request, response) => {

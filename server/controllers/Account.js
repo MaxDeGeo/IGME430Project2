@@ -228,6 +228,8 @@ const editProfileImage = async (request, response) => {
 
       return res.json({ imagePath: `assets/img/${fileName}` });
     });
+
+  return false;
 };
 
 const updateUsers = (request, response) => {
