@@ -23,6 +23,9 @@ const ChatSchema = new mongoose.Schema({
     required: true,
     ref: 'Account',
   },
+  image: {
+    type: String,
+  },
   createdDate: {
     type: Date,
     default: Date.now,

@@ -18,7 +18,7 @@ const handleLogin = (e) => {
       return false;
     }
   }
-
+  console.log($("#loginForm").serialize());
   sendAjax('POST', $("#loginForm").attr("action"), $("#loginForm").serialize(), redirect);
 
   return false;

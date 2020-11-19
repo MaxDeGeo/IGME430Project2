@@ -1,5 +1,9 @@
 "use strict";
 
+var socket = io(); //For Socket.io
+
+var globalCSRF;
+
 var handleCreate = function handleCreate(e, id, csrf) {
   e.preventDefault();
   var fields = {
@@ -34,6 +38,66 @@ var handleCreate = function handleCreate(e, id, csrf) {
   });
 };
 
+var handleImageUpload = function handleImageUpload(e, csrf, route, chatId) {
+  var data = new FormData();
+  data.append('name', e.target.value);
+  data.append('file', e.target.files[0]);
+  data.append('id', chatId);
+  sendAjaxImg('POST', "".concat(route, "?_csrf=").concat(csrf), data, function () {
+    if (route === '/editProfileImage') {
+      sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (data) {
+        ReactDOM.render( /*#__PURE__*/React.createElement(AccountPage, {
+          csrf: csrf,
+          user: data,
+          time: Date.now()
+        }), document.querySelector('#accountDisplay'));
+      });
+    } else if (route === '/editChatImage') {
+      sendAjax('GET', "/getChatRoom?_csrf=".concat(csrf, "&id=").concat(chatId), null, function (data) {
+        ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
+          csrf: csrf,
+          chat: data.chat,
+          time: Date.now()
+        }), document.querySelector('#chatEditor'));
+      });
+    }
+  });
+};
+
+var updateChatName = function updateChatName(e, csrf, chatId) {
+  console.log(e.target.value);
+  sendAjax('POST', "/changeChatName?_csrf=".concat(csrf, "&chatId=").concat(chatId, "&title=").concat(e.target.value), null, function (data) {
+    ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
+      csrf: csrf,
+      chat: data.chat,
+      time: Date.now()
+    }), document.querySelector('#chatEditor'));
+    loadChatRoomsFromServer(csrf);
+    sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (result) {
+      ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
+        csrf: csrf,
+        title: data.chat.name,
+        messages: data.chat.messages,
+        chatId: chatId,
+        currentUser: result._id
+      }), document.querySelector('#activeChat'));
+    });
+  });
+};
+
+var handleChatDelete = function handleChatDelete(e, csrf, chatId) {
+  sendAjax('POST', "/deleteChat?_csrf=".concat(csrf, "&chatId=").concat(chatId), null, function (data) {
+    if (data.response === "success") {
+      closeForm("#chatEditor");
+      loadChatRoomsFromServer(csrf);
+      ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
+        csrf: csrf
+      }), document.querySelector('#activeChat'));
+      sendAjax('POST', "/updateUsers?_csrf=".concat(csrf, "&chatId=").concat(chatId), null, null);
+    }
+  });
+};
+
 var ChatList = function ChatList(props) {
   var csrf = props.csrf;
 
@@ -53,15 +117,15 @@ var ChatList = function ChatList(props) {
   }
 
   var chatList = props.chats.map(function (chat) {
-    console.log(chat);
     return /*#__PURE__*/React.createElement("div", {
       key: chat._id,
       className: "listedChat",
       onClick: function onClick() {
         return loadChat(chat._id, csrf);
       }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "listedChatIcon"
+    }, /*#__PURE__*/React.createElement("img", {
+      className: "listedChatIcon",
+      src: chat.image !== "" ? chat.image : 'assets/img/chatPlaceholder.jpg'
     }), /*#__PURE__*/React.createElement("div", {
       className: "chatTextSec"
     }, /*#__PURE__*/React.createElement("h5", {
@@ -70,7 +134,13 @@ var ChatList = function ChatList(props) {
       className: "previousMessage"
     }, /*#__PURE__*/React.createElement("b", null, chat.messages[chat.messages.length - 1].user, ":"), " ", chat.messages[chat.messages.length - 1].message) : /*#__PURE__*/React.createElement("p", {
       className: "previousMessage"
-    }, "...")));
+    }, "..."), chat.owner === props.currentUser ? /*#__PURE__*/React.createElement("p", {
+      className: "chatEditButton",
+      onClick: function onClick() {
+        EditChatWindow(csrf, chat);
+        openForm("#chatEditor");
+      }
+    }, "Edit") : null));
   });
   return /*#__PURE__*/React.createElement("div", {
     className: "chatsContainer"
@@ -143,6 +213,78 @@ var ChatForm = function ChatForm(props) {
   }));
 };
 
+var AccountPage = function AccountPage(props) {
+  return /*#__PURE__*/React.createElement("div", {
+    id: "accountWindow",
+    key: "".concat(props.user.user.image, "-").concat(props.time)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "closeButton",
+    onClick: function onClick() {
+      return closeForm("#accountDisplay");
+    }
+  }, "x"), /*#__PURE__*/React.createElement("div", {
+    className: "accountFlex"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "accountImage"
+  }, /*#__PURE__*/React.createElement("img", {
+    key: "".concat(props.user.user.image, "-img-").concat(props.time),
+    className: "accImg",
+    src: props.user.user.image !== "" ? props.user.user.image : 'assets/img/proPlaceholder.png'
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    className: "proImgUp",
+    accept: ".png, .jpg, .jpeg, .gif",
+    onChange: function onChange(e) {
+      return handleImageUpload(e, props.csrf, '/editProfileImage');
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "accountDesc"
+  }, /*#__PURE__*/React.createElement("div", null, props.user.user.username), /*#__PURE__*/React.createElement("div", null, props.user.user.email))), /*#__PURE__*/React.createElement("a", {
+    href: "/changePassword",
+    className: "passwordButton"
+  }, "Change Password"));
+};
+
+var ChatEditPage = function ChatEditPage(props) {
+  return /*#__PURE__*/React.createElement("div", {
+    key: props.time,
+    id: "chatWindow"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "closeButton",
+    onClick: function onClick() {
+      return closeForm("#chatEditor");
+    }
+  }, "x"), /*#__PURE__*/React.createElement("div", {
+    className: "accountFlex"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "accountImage"
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "accImg",
+    src: props.chat.image !== "" ? props.chat.image : 'assets/img/chatPlaceholder.jpg'
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    className: "proImgUp",
+    accept: ".png, .jpg, .jpeg, .gif",
+    onChange: function onChange(e) {
+      return handleImageUpload(e, props.csrf, '/editChatImage', props.chat._id);
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "accountDesc"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "editChatName",
+    defaultValue: props.chat.name,
+    placeholder: "Enter the name for the chat room",
+    onBlur: function onBlur(e) {
+      return updateChatName(e, props.csrf, props.chat._id);
+    }
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "passwordButton",
+    onClick: function onClick(e) {
+      return handleChatDelete(e, props.csrf, props.chat._id);
+    }
+  }, "Delete Chat"));
+};
+
 var Chat = function Chat(props) {
   var csrf = props.csrf;
   var chatId = props.chatId;
@@ -155,7 +297,7 @@ var Chat = function Chat(props) {
         className: "messageFlex"
       }, /*#__PURE__*/React.createElement("img", {
         className: "messageImage",
-        src: message.profileImage ? message.profileImage : "/assets/img/proPlaceholder.png",
+        src: message.image ? message.image : "/assets/img/proPlaceholder.png",
         alt: "Profile Image"
       }), /*#__PURE__*/React.createElement("div", {
         className: "messageData"
@@ -209,12 +351,17 @@ var sendMessage = function sendMessage(e, chatId, csrf) {
       e.preventDefault();
 
       if (e.target.value.trim() !== "") {
-        var serializedField = "message=".concat(e.target.value.trim(), "&_csrf=").concat(csrf);
+        var msg = e.target.value.trim();
+        var serializedField = "_csrf=".concat(csrf, "&message=").concat(e.target.value.trim());
         sendAjax('POST', '/createMessage', serializedField, function (data) {
-          var serializedFieldChat = "message=".concat(data.messageData.text, "&user=").concat(data.messageData.user, "&messageId=").concat(data.messageData.messageId, "&chatId=").concat(chatId, "&_csrf=").concat(csrf);
-          sendAjax('POST', '/updateChat', serializedFieldChat, function (response) {
-            loadChat(chatId, csrf);
-            clearChat();
+          sendAjax('GET', '/getUser', "_csrf=".concat(csrf), function (user) {
+            var serializedFieldChat = "message=".concat(data.messageData.text, "&user=").concat(data.messageData.user, "&messageId=").concat(data.messageData.messageId, "&chatId=").concat(chatId, "&image=").concat(user.user.image, "&_csrf=").concat(csrf);
+            sendAjax('POST', '/updateChat', serializedFieldChat, function (response) {
+              loadChat(chatId, csrf);
+              clearChat(); // let socket = io();
+
+              socket.emit('chat message', msg);
+            });
           });
         });
       }
@@ -224,10 +371,13 @@ var sendMessage = function sendMessage(e, chatId, csrf) {
 
 var loadChatRoomsFromServer = function loadChatRoomsFromServer(csrf) {
   sendAjax('GET', '/getChatRooms', null, function (data) {
-    ReactDOM.render( /*#__PURE__*/React.createElement(ChatList, {
-      csrf: csrf,
-      chats: data.chats
-    }), document.querySelector("#chats"));
+    sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (user) {
+      ReactDOM.render( /*#__PURE__*/React.createElement(ChatList, {
+        csrf: csrf,
+        chats: data.chats,
+        currentUser: user.user._id
+      }), document.querySelector("#chats"));
+    });
   });
 };
 
@@ -241,6 +391,8 @@ var loadChat = function loadChat(chatId, csrf) {
       chatId: chatId,
       currentUser: data.activeUser
     }), document.querySelector("#activeChat"));
+    var chat = document.querySelector("#chatSection");
+    chat.scrollTop = chat.scrollHeight;
     sendAjax('POST', "/setChat?chatId=".concat(chatId, "&_csrf=").concat(csrf), null, null);
   });
 };
@@ -251,10 +403,15 @@ var AccountTabFooter = function AccountTabFooter(props) {
   }, /*#__PURE__*/React.createElement("div", {
     className: "footProfLeft"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "footerProfileImg"
-  }, /*#__PURE__*/React.createElement("div", null, "View")), /*#__PURE__*/React.createElement("div", {
+    className: "footerProfileImg",
+    onClick: function onClick() {
+      return openForm('#accountDisplay');
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: props.user.image !== "" ? props.user.image : "/assets/img/proPlaceholder.png"
+  }), /*#__PURE__*/React.createElement("div", null, "View")), /*#__PURE__*/React.createElement("div", {
     className: "footerProfileName"
-  }, props.username ? /*#__PURE__*/React.createElement("p", null, props.username) : /*#__PURE__*/React.createElement("p", null, "Test User"), /*#__PURE__*/React.createElement("a", {
+  }, props.user.username ? /*#__PURE__*/React.createElement("p", null, props.user.username) : /*#__PURE__*/React.createElement("p", null, "..."), /*#__PURE__*/React.createElement("a", {
     className: "logoutText",
     href: "/logout"
   }, "Log out"))));
@@ -264,13 +421,24 @@ var getUser = function getUser(csrf) {
   sendAjax('GET', "/getUser", null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(AccountTabFooter, {
       csrf: csrf,
-      username: data.username
+      user: data.user
     }), document.querySelector('#accountFooter'));
   });
 };
 
+var EditChatWindow = function EditChatWindow(csrf, props) {
+  //React Element #7
+  ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
+    csrf: csrf,
+    chat: props,
+    time: Date.now()
+  }), document.querySelector('#chatEditor'));
+};
+
 var setup = function setup(csrf) {
+  globalCSRF = csrf; //For Socket.io
   //React Element #1
+
   ReactDOM.render( /*#__PURE__*/React.createElement(ChatList, {
     csrf: csrf,
     chats: []
@@ -283,6 +451,8 @@ var setup = function setup(csrf) {
       ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
         csrf: csrf
       }), document.querySelector('#activeChat'));
+      var chat = document.querySelector("#chatSection");
+      chat.scrollTop = chat.scrollHeight;
     }
   }); //React Element #3
 
@@ -294,7 +464,15 @@ var setup = function setup(csrf) {
 
   ReactDOM.render( /*#__PURE__*/React.createElement(ChatForm, {
     csrf: csrf
-  }), document.querySelector('#chatCreator'));
+  }), document.querySelector('#chatCreator')); //React Element #6
+
+  sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (data) {
+    ReactDOM.render( /*#__PURE__*/React.createElement(AccountPage, {
+      csrf: csrf,
+      user: data,
+      time: Date.now()
+    }), document.querySelector('#accountDisplay'));
+  });
   loadChatRoomsFromServer(csrf);
 };
 
@@ -306,6 +484,12 @@ var getToken = function getToken() {
 
 $(document).ready(function () {
   getToken();
+}); // SOCKET.IO EMIT
+
+socket.on('chat message', function (msg) {
+  sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (user) {
+    loadChat(user.user.chat, globalCSRF);
+  });
 });
 "use strict";
 
@@ -332,6 +516,23 @@ var sendAjax = function sendAjax(type, action, data, success) {
     dataType: 'json',
     success: success,
     error: function error(xhr, status, _error) {
+      var messageObj = JSON.parse(xhr.responseText);
+      handleError(messageObj.error);
+    }
+  });
+};
+
+var sendAjaxImg = function sendAjaxImg(type, action, data, success) {
+  $.ajax({
+    cache: false,
+    type: type,
+    url: action,
+    data: data,
+    dataType: 'json',
+    success: success,
+    processData: false,
+    contentType: false,
+    error: function error(xhr, status, _error2) {
       var messageObj = JSON.parse(xhr.responseText);
       handleError(messageObj.error);
     }

@@ -33,6 +33,9 @@ const AccountSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'Chat',
   },
+  image: {
+    type: String,
+  },
   createdDate: {
     type: Date,
     default: Date.now,

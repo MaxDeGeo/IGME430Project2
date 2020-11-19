@@ -20,6 +20,7 @@ var handleLogin = function handleLogin(e) {
     }
   }
 
+  console.log($("#loginForm").serialize());
   sendAjax('POST', $("#loginForm").attr("action"), $("#loginForm").serialize(), redirect);
   return false;
 };
@@ -352,6 +353,23 @@ var sendAjax = function sendAjax(type, action, data, success) {
     dataType: 'json',
     success: success,
     error: function error(xhr, status, _error) {
+      var messageObj = JSON.parse(xhr.responseText);
+      handleError(messageObj.error);
+    }
+  });
+};
+
+var sendAjaxImg = function sendAjaxImg(type, action, data, success) {
+  $.ajax({
+    cache: false,
+    type: type,
+    url: action,
+    data: data,
+    dataType: 'json',
+    success: success,
+    processData: false,
+    contentType: false,
+    error: function error(xhr, status, _error2) {
       var messageObj = JSON.parse(xhr.responseText);
       handleError(messageObj.error);
     }

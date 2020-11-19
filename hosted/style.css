@@ -141,10 +141,14 @@ nav:nth-child(1) {
 #bgVideo {
     position: fixed;
     /* height: 100vh; */
-    /* width: 100vw; */
+    width: 100vw;
     z-index: 0;
     object-fit: cover;
     /* overflow-y: hidden; */
+}
+
+#bgVideo video {
+    width: 100%;
 }
 
 .formBody {
@@ -349,11 +353,21 @@ nav:nth-child(1) {
     border: 1px solid #e7e7e7;
     margin-top: 5px;
     margin-left: 5px;
+    display: block;
+}
+
+.footerProfileImg img {
+    width: 40px;
+    height: 40px;
+    position: relative;
+    border-radius: 5em;
+    z-index: 1;
 }
 
 .footerProfileImg div {
     display: none;
     width: 40px;
+    top: -40px;
     height: 26px;
     font-size: .8em;
     padding-top: 14px;
@@ -363,6 +377,7 @@ nav:nth-child(1) {
     position: relative;
     color: white;
     text-align: center;
+    z-index: 2;
 }
 
 .footerProfileImg:hover div {
@@ -386,7 +401,7 @@ nav:nth-child(1) {
 .listedChat {
     display: flex;
     padding: 10px;
-    border-bottom: 1px solid #efefef;
+    border-bottom: 1px solid #e8e8e9;
     cursor: pointer;
 }
 
@@ -415,7 +430,7 @@ nav:nth-child(1) {
 }
 
 .chatTextSec {
-    margin-top: 12px;
+    margin-top: 8px;
     margin-left: 5px;
 }
 
@@ -577,4 +592,140 @@ nav:nth-child(1) {
 
 .messageText {
     margin-top: 7px;
+}
+
+#accountDisplay {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0000008a;
+    z-index: 50;
+    padding-top: 150px;
+    transition: .3s;
+    /* visibility: hidden; */
+    /* opacity: 0; */
+    visibility: hidden;
+    opacity: 0;
+} 
+
+#accountWindow {
+    width: 500px;
+    padding: 50px;
+    background-color: white;
+    position: relative;
+    z-index: 1;
+    border-radius: 5px;
+    border: 1px solid #e7e7e7;
+    margin: 0 auto;
+    box-shadow: 0px 1px 3px -3px rgba(0,0,0,0.75);
+    background-color: #ffffff;
+}
+
+.accountFlex {
+    display: flex;
+    flex-direction: row;
+}
+
+.accountImage {
+    width: 200px;
+    /* height: 200px; */
+}
+
+.accountDesc {
+    margin-left: 30px;
+    padding-top: 30px;
+}
+
+.accountDesc div:nth-child(1) {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.accountDesc div:nth-child(2) {
+    font-size: 1.1em;
+    margin-top: 10px;
+}
+
+.passwordButton {
+    padding: 10px 20px;
+    color: black;
+    border: 1px solid black;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    width: 131px;
+    transition: .3s;
+    margin: 0px auto;
+    margin-top: 20px;
+    display: block;
+    text-decoration: none;
+}
+
+.passwordButton:hover {
+    transition: .3s;
+    background-color: black;
+    color: white;
+}
+
+.accImg {
+    width: 200px;
+    height: 200px;
+    border: 1px solid lightgray;
+    border-radius: 10em;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: 50% 50%;
+    display: block;
+}
+
+.proImgUp {
+    margin-top: 20px;
+    width: 200px;
+}
+
+.chatEditButton {
+    font-size: .7em;
+    color: gray;
+    cursor: pointer;
+    text-decoration: underline;
+    display: inline-block;
+}
+
+.chatEditButton:hover {
+    color: black;
+}
+
+#chatEditor {
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0000008a;
+    z-index: 50;
+    padding-top: 150px;
+    transition: .3s;
+    visibility: hidden;
+    opacity: 0;
+}
+
+#chatWindow {
+    width: 500px;
+    padding: 50px;
+    background-color: white;
+    position: relative;
+    z-index: 1;
+    border-radius: 5px;
+    border: 1px solid #e7e7e7;
+    margin: 0 auto;
+    box-shadow: 0px 1px 3px -3px rgba(0,0,0,0.75);
+    background-color: #ffffff;
+}
+
+.editChatName {
+    font-size: 1.5em;
+    border: none;
+    outline: none;
+}
+
+.editChatName:focus {
+    border: 2px solid #5065df;
 }

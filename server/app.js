@@ -11,6 +11,8 @@ const RedisStore = require('connect-redis')(session);
 const url = require('url');
 const csrf = require('csurf');
 const redis = require('redis');
+const socketIO = require('socket.io');
+const http = require('http');
 
 const port = process.env.PORT || process.env.NODE_OIRT || 3000;
 
@@ -49,6 +51,21 @@ const redisClient = redis.createClient({
 const router = require('./router.js');
 
 const app = express();
+httpServer = http.Server(app);
+const io = socketIO(httpServer);
+
+io.on('connection', (socket) => { /* socket object may be used to send specific messages to the new connected client */
+  console.log('a user connected');
+
+  socket.on('chat message', (msg) => {
+    io.emit('chat message', msg);
+    console.log(`message: ${msg}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('user disconnected');
+  });
+});
 
 app.use('/assets', express.static(path.resolve(`${__dirname}/../hosted/`)));
 app.use(favicon(`${__dirname}/../hosted/img/favicon.png`));
@@ -84,7 +101,7 @@ app.use((err, req, res, next) => {
 
 router(app);
 
-app.listen(port, (err) => {
+httpServer.listen(port, (err) => {
   if (err) {
     throw err;
   }

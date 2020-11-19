@@ -27,6 +27,23 @@ const sendAjax = (type, action, data, success) => {
   });
 };
 
+const sendAjaxImg = (type, action, data, success) => {
+  $.ajax({
+    cache: false,
+    type,
+    url: action,
+    data,
+    dataType: 'json',
+    success,
+    processData: false,
+    contentType: false,
+    error(xhr, status, error) {
+      const messageObj = JSON.parse(xhr.responseText);
+      handleError(messageObj.error);
+    },
+  });
+};
+
 const openForm = (id) => {
   document.querySelector(id).style.visibility = 'visible';
   document.querySelector(id).style.opacity = 1;

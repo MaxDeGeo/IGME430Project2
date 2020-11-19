@@ -1,3 +1,6 @@
+const fs = require('fs');
+const { promisify } = require('util');
+const pipeline = promisify(require('stream').pipeline);
 const models = require('../models');
 
 const { Account } = models;
@@ -20,7 +23,7 @@ const login = (request, response) => {
   const password = `${req.body.pass}`;
 
   if (!username || !password) {
-    return res.status(400).json({ error: 'RAWR! All fields are required' });
+    return res.status(400).json({ error: 'All fields are required' });
   }
 
   return Account.AccountModel.authenticate(username, password, (err, account) => {
@@ -47,15 +50,15 @@ const signup = (request, response) => {
 
   if (!req.body.username || !req.body.pass || !req.body.pass2
     || !req.body.email || !req.body.email2) {
-    return res.status(400).json({ error: 'RAWR! All fields are required' });
+    return res.status(400).json({ error: 'All fields are required' });
   }
 
   if (req.body.pass !== req.body.pass2) {
-    return res.status(400).json({ error: 'RAWR! Passwords do not match' });
+    return res.status(400).json({ error: 'Passwords do not match' });
   }
 
   if (req.body.email !== req.body.email2) {
-    return res.status(400).json({ error: 'RAWR! Emails do not match' });
+    return res.status(400).json({ error: 'Emails do not match' });
   }
 
   return Account.AccountModel.generateHash(req.body.pass, (salt, hash) => {
@@ -155,7 +158,16 @@ const getUser = (request, response) => {
   const req = request;
   const res = response;
 
-  return res.json({ username: req.session.account.username });
+  return Account.AccountModel.findOne({ _id: req.session.account._id }, (err, doc) => {
+    if (err) {
+      console.log(err);
+      return res.status(400).json({ error: 'An error occurred' });
+    }
+
+    return res.json({ user: doc });
+  });
+
+  // return res.json({ username: req.session.account.username });
 };
 
 const getChat = (request, response) => {
@@ -190,6 +202,51 @@ const setChat = (request, response) => {
     });
 };
 
+const editProfileImage = async (request, response) => {
+  const req = request;
+  const res = response;
+
+  const { file } = req;
+  if (file.detectedFileExtension !== '.jpg' && file.detectedFileExtension !== '.png' && file.detectedFileExtension !== '.gif') {
+    return res.json({ error: 'Invalid file type' });
+  }
+
+  const fileName = `${req.session.account._id}_profile_img${file.detectedFileExtension}`;
+
+  await pipeline(file.stream, fs.createWriteStream(`${__dirname}/../../hosted/img/${fileName}`));
+
+  const accountData = {
+    image: `assets/img/${fileName}`,
+  };
+
+  Account.AccountModel.updateOne({ _id: req.session.account._id },
+    { $set: accountData }, (error) => {
+      if (error) {
+        console.log(err);
+        return res.status(400).json({ error: 'An error occurred' });
+      }
+
+      return res.json({ imagePath: `assets/img/${fileName}` });
+    });
+};
+
+const updateUsers = (request, response) => {
+  const req = request;
+  const res = response;
+
+  const updatedData = {
+    chat: '',
+  };
+
+  Account.AccountModel.updateMany({ chat: req.query.chatId }, { $set: updatedData }, (err) => {
+    if (err) {
+      return res.status(400).json({ error: 'An error occurred' });
+    }
+
+    return res.json({ response: 'succcess' });
+  });
+};
+
 module.exports.loginPage = loginPage;
 module.exports.login = login;
 module.exports.logout = logout;
@@ -201,3 +258,5 @@ module.exports.homePage = homePage;
 module.exports.getUser = getUser;
 module.exports.getChat = getChat;
 module.exports.setChat = setChat;
+module.exports.editProfileImage = editProfileImage;
+module.exports.updateUsers = updateUsers;

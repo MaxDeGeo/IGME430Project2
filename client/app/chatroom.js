@@ -1,3 +1,6 @@
+let socket = io(); //For Socket.io
+let globalCSRF;
+
 const handleCreate = (e, id, csrf) => {
   e.preventDefault();
 
@@ -33,6 +36,64 @@ const handleCreate = (e, id, csrf) => {
   sendAjax('POST', $("#chatForm").attr("action"), $("#chatForm").serialize(), () => {
     loadChatRoomsFromServer(csrf);
   });
+};
+
+const handleImageUpload = (e, csrf, route, chatId) => {
+  
+  const data = new FormData();
+  data.append('name', e.target.value);
+  data.append('file', e.target.files[0]);
+  data.append('id', chatId);
+
+  sendAjaxImg('POST', `${route}?_csrf=${csrf}`, data, () => {
+    if (route === '/editProfileImage') {
+      sendAjax('GET', `/getUser?_csrf=${csrf}`, null, (data) => {
+        ReactDOM.render(
+          <AccountPage csrf={csrf} user={data} time={Date.now()} />, document.querySelector('#accountDisplay')
+        );
+      });
+    } else if (route === '/editChatImage') {
+      sendAjax('GET', `/getChatRoom?_csrf=${csrf}&id=${chatId}`, null, (data) => {
+        ReactDOM.render(
+          <ChatEditPage csrf={csrf} chat={data.chat} time={Date.now()}/>, document.querySelector('#chatEditor')
+        );
+      });
+    }
+  });
+};
+
+const updateChatName = (e, csrf, chatId) => {
+  console.log(e.target.value);
+
+  sendAjax('POST', `/changeChatName?_csrf=${csrf}&chatId=${chatId}&title=${e.target.value}`, null, (data) => {
+    ReactDOM.render(
+      <ChatEditPage csrf={csrf} chat={data.chat} time={Date.now()}/>, document.querySelector('#chatEditor')
+    );
+
+    loadChatRoomsFromServer(csrf);
+
+    sendAjax('GET', `/getUser?_csrf=${csrf}`, null, (result) => {
+      ReactDOM.render(
+        <Chat csrf={csrf} title={data.chat.name} messages={data.chat.messages} chatId={chatId} currentUser={result._id} />, document.querySelector('#activeChat')
+      );
+    })
+  })
+};
+
+const handleChatDelete = (e, csrf, chatId) => {
+  sendAjax('POST', `/deleteChat?_csrf=${csrf}&chatId=${chatId}`, null, (data) => {
+    if (data.response === "success") {
+      closeForm("#chatEditor");
+
+      loadChatRoomsFromServer(csrf);
+
+      ReactDOM.render(
+        <Chat csrf={csrf} />, document.querySelector('#activeChat')
+      );
+
+      sendAjax('POST', `/updateUsers?_csrf=${csrf}&chatId=${chatId}`, null, null);
+    }
+  })
 }
 
 const ChatList = (props) => {
@@ -49,13 +110,13 @@ const ChatList = (props) => {
   }
 
   const chatList = props.chats.map(function(chat) {
-    console.log(chat);
     return (
       <div key={chat._id} className="listedChat" onClick={() => loadChat(chat._id, csrf)}>
-        <div className="listedChatIcon"></div>
+        <img className="listedChatIcon" src={chat.image !== "" ? chat.image : 'assets/img/chatPlaceholder.jpg' } />
         <div className="chatTextSec">
           <h5 className="listedChatName">{chat.name}</h5>
-    {chat.messages.length > 0 ? <p className="previousMessage"><b>{chat.messages[chat.messages.length - 1].user}:</b> {chat.messages[chat.messages.length - 1].message}</p> : <p className="previousMessage">...</p>}
+          {chat.messages.length > 0 ? <p className="previousMessage"><b>{chat.messages[chat.messages.length - 1].user}:</b> {chat.messages[chat.messages.length - 1].message}</p> : <p className="previousMessage">...</p>}
+          {chat.owner === props.currentUser ? <p className="chatEditButton" onClick={() => {EditChatWindow(csrf, chat); openForm("#chatEditor");}}>Edit</p> : null}
         </div>
       </div>
     )
@@ -72,45 +133,81 @@ const ChatList = (props) => {
       </div>
     </div>
   )
-}
+};
 
 const ChatForm = (props) => {
   return (
-        <form id="chatForm"
-          onSubmit={handleCreate}
-          name="chatForm"
-          action="/createChat"
-          method="POST"
-          className="formBody">
-            <div className="closeButton" onClick={() => closeForm("#chatCreator")}>x</div>
-            <div className="formField">
-              <h2 className="formTitle">Create a Chat Room</h2>
-              <div className="formInput">
-                <label className="labelText" htmlFor="chatName">Name: </label>
-                <input className="fullInput" id="chatName" type="text" name="chatName" />
-              </div>
-              <div className="formInput">
-                <label className="labelText" htmlFor="chatLimit">Maximum Occupancy: </label>
-                <input className="fullInput" id="chatLimit" type="number" name="chatLimit" />
-                <div className="inputError" id="chatLimitError">Must be greater than 1.</div>
-              </div>
-            </div>
-            <input type="hidden" name="_csrf" value={props.csrf} />
-            <input className="formSubmit" type="submit" name="Make Chat" />
-        </form>
-      )
-}
+    <form id="chatForm"
+      onSubmit={handleCreate}
+      name="chatForm"
+      action="/createChat"
+      method="POST"
+      className="formBody">
+        <div className="closeButton" onClick={() => closeForm("#chatCreator")}>x</div>
+        <div className="formField">
+          <h2 className="formTitle">Create a Chat Room</h2>
+          <div className="formInput">
+            <label className="labelText" htmlFor="chatName">Name: </label>
+            <input className="fullInput" id="chatName" type="text" name="chatName" />
+          </div>
+          <div className="formInput">
+            <label className="labelText" htmlFor="chatLimit">Maximum Occupancy: </label>
+            <input className="fullInput" id="chatLimit" type="number" name="chatLimit" />
+            <div className="inputError" id="chatLimitError">Must be greater than 1.</div>
+          </div>
+        </div>
+        <input type="hidden" name="_csrf" value={props.csrf} />
+        <input className="formSubmit" type="submit" name="Make Chat" />
+    </form>
+  )
+};
+
+const AccountPage = (props) => {
+  return (
+    <div id="accountWindow" key={`${props.user.user.image}-${props.time}`}>
+      <div className="closeButton" onClick={() => closeForm("#accountDisplay")}>x</div>
+      <div className="accountFlex">
+        <div className="accountImage">
+          <img key={`${props.user.user.image}-img-${props.time}`} className="accImg" src={props.user.user.image !== "" ? props.user.user.image : 'assets/img/proPlaceholder.png' } />
+          <input type="file" className="proImgUp" accept=".png, .jpg, .jpeg, .gif" onChange={(e) => handleImageUpload(e, props.csrf, '/editProfileImage')} />
+        </div>
+        <div className="accountDesc">
+          <div>{props.user.user.username}</div>
+          <div>{props.user.user.email}</div>
+        </div>
+      </div>
+      <a href="/changePassword" className="passwordButton">Change Password</a>
+    </div>
+  )
+};
+
+const ChatEditPage = (props) => {
+  return (
+    <div key={props.time} id="chatWindow">
+      <div className="closeButton" onClick={() => closeForm("#chatEditor")}>x</div>
+      <div className="accountFlex">
+        <div className="accountImage">
+          <img className="accImg" src={props.chat.image !== "" ? props.chat.image : 'assets/img/chatPlaceholder.jpg' } />
+          <input type="file" className="proImgUp" accept=".png, .jpg, .jpeg, .gif" onChange={(e) => handleImageUpload(e, props.csrf, '/editChatImage', props.chat._id)} />
+        </div>
+        <div className="accountDesc">
+          <input className="editChatName" defaultValue={props.chat.name} placeholder="Enter the name for the chat room" onBlur={(e) => updateChatName(e, props.csrf, props.chat._id)} />
+        </div>
+      </div>
+      <div className="passwordButton" onClick={(e) => handleChatDelete(e, props.csrf, props.chat._id)}>Delete Chat</div>
+    </div>
+  )
+};
 
 const Chat = (props) => {
   const csrf = props.csrf;
   const chatId = props.chatId
-
   let messages;
   if (props.title) {
     messages = props.messages.map(function(message) {
       return (
         <div key={message.messageId} className="messageFlex">
-        <img className="messageImage" src={message.profileImage ? message.profileImage : "/assets/img/proPlaceholder.png"} alt="Profile Image" />
+        <img className="messageImage" src={message.image ? message.image : "/assets/img/proPlaceholder.png"} alt="Profile Image" />
         <div className="messageData">
           <div className="messageName">{message.user}</div>
           <div className="messageText">{message.message}</div>
@@ -119,7 +216,7 @@ const Chat = (props) => {
       )
     });
   }
-
+  
   return (
     <div className="chatContainer">
       <div id="chatTitle">
@@ -138,7 +235,7 @@ const Chat = (props) => {
       </div>
     </div>
   )
-}
+};
 
 const Ads = (props) => {
   return (
@@ -147,7 +244,7 @@ const Ads = (props) => {
       <img alt="temp ad 2 image" src="/assets/img/fa2.png" className="faSection" />
     </div>
   )
-}
+};
 
 const sendMessage = (e, chatId, csrf) => {
   if (!e.shiftKey) {
@@ -155,24 +252,31 @@ const sendMessage = (e, chatId, csrf) => {
       e.preventDefault();
 
       if (e.target.value.trim() !== "") {
-        const serializedField = `message=${e.target.value.trim()}&_csrf=${csrf}`
+        let msg = e.target.value.trim();
+        const serializedField = `_csrf=${csrf}&message=${e.target.value.trim()}`
         sendAjax('POST', '/createMessage', serializedField, (data) => {
-          const serializedFieldChat = `message=${data.messageData.text}&user=${data.messageData.user}&messageId=${data.messageData.messageId}&chatId=${chatId}&_csrf=${csrf}`;
-          sendAjax('POST', '/updateChat', serializedFieldChat, (response) => {
-            loadChat(chatId, csrf);
-            clearChat();
-          });
+          sendAjax('GET', '/getUser', `_csrf=${csrf}`, (user) => {
+            const serializedFieldChat = `message=${data.messageData.text}&user=${data.messageData.user}&messageId=${data.messageData.messageId}&chatId=${chatId}&image=${user.user.image}&_csrf=${csrf}`;
+            sendAjax('POST', '/updateChat', serializedFieldChat, (response) => {
+              loadChat(chatId, csrf);
+              clearChat();
+              // let socket = io();
+              socket.emit('chat message', msg);
+            });
+          })
         });
       }
     }
   }
-}
+};
 
 const loadChatRoomsFromServer = (csrf) => {
   sendAjax('GET', '/getChatRooms', null, (data) => {
-    ReactDOM.render(
-      <ChatList csrf={csrf} chats={data.chats} />, document.querySelector("#chats")
-    );
+    sendAjax('GET', `/getUser?_csrf=${csrf}`, null, (user) => {
+      ReactDOM.render(
+        <ChatList csrf={csrf} chats={data.chats} currentUser={user.user._id} />, document.querySelector("#chats")
+      );
+    })
   });
 };
 
@@ -182,7 +286,9 @@ const loadChat = (chatId, csrf) => {
     ReactDOM.render(
       <Chat csrf={csrf} title={data.chat.name} messages={data.chat.messages} chatId={chatId} currentUser={data.activeUser}/>, document.querySelector("#activeChat")
     );
-    
+    var chat = document.querySelector("#chatSection");
+    chat.scrollTop = chat.scrollHeight;
+
     sendAjax('POST', `/setChat?chatId=${chatId}&_csrf=${csrf}`, null, null)
   });
 };
@@ -191,11 +297,12 @@ const AccountTabFooter = (props) => {
   return (
     <div className="accountFooterFlex">
       <div className="footProfLeft">
-        <div className="footerProfileImg">
+        <div className="footerProfileImg" onClick={() => openForm('#accountDisplay')}>
+          <img src={props.user.image !== "" ? props.user.image : "/assets/img/proPlaceholder.png"} />
           <div>View</div>
         </div>
         <div className="footerProfileName">
-          {props.username ? <p>{props.username}</p> : <p>Test User</p>}
+          {props.user.username ? <p>{props.user.username}</p> : <p>...</p>}
           <a className="logoutText" href="/logout">Log out</a>
         </div>
       </div>
@@ -206,12 +313,20 @@ const AccountTabFooter = (props) => {
 const getUser = (csrf) => {
   sendAjax('GET', `/getUser`, null, (data) => {
     ReactDOM.render(
-      <AccountTabFooter csrf={csrf} username={data.username} />, document.querySelector('#accountFooter')
+      <AccountTabFooter csrf={csrf} user={data.user} />, document.querySelector('#accountFooter')
     );
   });
 }
 
+const EditChatWindow = (csrf, props) => {
+  //React Element #7
+  ReactDOM.render(
+    <ChatEditPage csrf={csrf} chat={props} time={Date.now()} />, document.querySelector('#chatEditor')
+  );
+}
+
 const setup = function(csrf) {
+  globalCSRF = csrf; //For Socket.io
 
   //React Element #1
   ReactDOM.render(
@@ -226,6 +341,9 @@ const setup = function(csrf) {
       ReactDOM.render(
         <Chat csrf={csrf} />, document.querySelector('#activeChat')
       );
+
+      var chat = document.querySelector("#chatSection");
+      chat.scrollTop = chat.scrollHeight;
     }
   })
 
@@ -242,6 +360,13 @@ const setup = function(csrf) {
     <ChatForm csrf={csrf} />, document.querySelector('#chatCreator')
   );
 
+  //React Element #6
+  sendAjax('GET', `/getUser?_csrf=${csrf}`, null, (data) => {
+    ReactDOM.render(
+      <AccountPage csrf={csrf} user={data} time={Date.now()} />, document.querySelector('#accountDisplay')
+    );
+  });
+
   loadChatRoomsFromServer(csrf);
 };
 
@@ -253,4 +378,12 @@ const getToken = () => {
 
 $(document).ready(function() {
   getToken();
+
+});
+
+// SOCKET.IO EMIT
+socket.on('chat message', (msg) => {
+  sendAjax('GET', `/getUser?_csrf=${globalCSRF}`, null, (user) => {
+    loadChat(user.user.chat, globalCSRF);
+  })
 });
