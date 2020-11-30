@@ -65,8 +65,6 @@ const handleImageUpload = (e, csrf, route, chatId) => {
 };
 
 const updateChatName = (e, csrf, chatId) => {
-  console.log(e.target.value);
-
   sendAjax('POST', `/changeChatName?_csrf=${globalCSRF}&chatId=${chatId}&title=${e.target.value}`, null, (data) => {
     ReactDOM.render(
       <ChatEditPage csrf={globalCSRF} chat={data.chat} time={Date.now()}/>, document.querySelector('#chatEditor')
@@ -409,6 +407,5 @@ socket.on('update chats', () => {
 });
 
 socket.on('chat created', () => {
-  console.log(globalCSRF);
   loadChatRoomsFromServer(globalCSRF);
 });

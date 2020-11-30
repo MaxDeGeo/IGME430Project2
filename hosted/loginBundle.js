@@ -20,7 +20,6 @@ var handleLogin = function handleLogin(e) {
     }
   }
 
-  console.log($("#loginForm").serialize());
   sendAjax('POST', $("#loginForm").attr("action"), $("#loginForm").serialize(), redirect);
   return false;
 };

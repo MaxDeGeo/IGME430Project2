@@ -66,7 +66,6 @@ var handleImageUpload = function handleImageUpload(e, csrf, route, chatId) {
 };
 
 var updateChatName = function updateChatName(e, csrf, chatId) {
-  console.log(e.target.value);
   sendAjax('POST', "/changeChatName?_csrf=".concat(globalCSRF, "&chatId=").concat(chatId, "&title=").concat(e.target.value), null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
       csrf: globalCSRF,
@@ -507,7 +506,6 @@ socket.on('update chats', function () {
   loadChatRoomsFromServer(globalCSRF);
 });
 socket.on('chat created', function () {
-  console.log(globalCSRF);
   loadChatRoomsFromServer(globalCSRF);
 });
 "use strict";
