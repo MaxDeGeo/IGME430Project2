@@ -27,6 +27,7 @@ const router = (app) => {
   app.post('/changeChatName', mid.requiresLogin, controllers.Chat.updateChatName);
   app.post('/editProfileImage', upload.single('file'), controllers.Account.editProfileImage);
   app.post('/editChatImage', upload.single('file'), controllers.Chat.editChatImage);
+  app.get('*', mid.requiresLogin, controllers.Account.homePage); // If route doesn't exist, go home
 };
 
 module.exports = router;

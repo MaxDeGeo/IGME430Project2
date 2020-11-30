@@ -237,15 +237,14 @@ const updateUsers = (request, response) => {
   const res = response;
 
   const updatedData = {
-    chat: '',
+    chat: 1,
   };
 
-  Account.AccountModel.updateMany({ chat: req.query.chatId }, { $set: updatedData }, (err) => {
+  Account.AccountModel.updateMany({ chat: req.query.chatId }, { $unset: updatedData }, (err) => {
     if (err) {
       return res.status(400).json({ error: 'An error occurred' });
     }
-
-    return res.json({ response: 'succcess' });
+    return res.json({ response: 'success' });
   });
 };
 

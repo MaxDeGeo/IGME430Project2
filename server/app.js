@@ -59,7 +59,15 @@ io.on('connection', (socket) => { /* socket object may be used to send specific 
 
   socket.on('chat message', (msg) => {
     io.emit('chat message', msg);
-    console.log(`message: ${msg}`);
+    // console.log(`message: ${msg}`);
+  });
+
+  socket.on('update chats', () => {
+    io.emit('update chats');
+  });
+
+  socket.on('chat created', () => {
+    io.emit('chat created');
   });
 
   socket.on('disconnect', () => {

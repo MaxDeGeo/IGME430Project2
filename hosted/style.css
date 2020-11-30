@@ -140,15 +140,13 @@ nav:nth-child(1) {
 
 #bgVideo {
     position: fixed;
-    /* height: 100vh; */
+    height: 100vh;
     width: 100vw;
     z-index: 0;
-    object-fit: cover;
-    /* overflow-y: hidden; */
-}
-
-#bgVideo video {
-    width: 100%;
+    background-image: url('../assets/img/bgColor.png');
+    background-position: 50% 50%;
+    background-size: cover;
+    background-repeat: no-repeat;
 }
 
 .formBody {

@@ -34,8 +34,9 @@ var handleCreate = function handleCreate(e, id, csrf) {
 
   closeForm('#chatCreator');
   sendAjax('POST', $("#chatForm").attr("action"), $("#chatForm").serialize(), function () {
-    loadChatRoomsFromServer(csrf);
+    loadChatRoomsFromServer(globalCSRF);
   });
+  socket.emit('chat created');
 };
 
 var handleImageUpload = function handleImageUpload(e, csrf, route, chatId) {
@@ -43,19 +44,19 @@ var handleImageUpload = function handleImageUpload(e, csrf, route, chatId) {
   data.append('name', e.target.value);
   data.append('file', e.target.files[0]);
   data.append('id', chatId);
-  sendAjaxImg('POST', "".concat(route, "?_csrf=").concat(csrf), data, function () {
+  sendAjaxImg('POST', "".concat(route, "?_csrf=").concat(globalCSRF), data, function () {
     if (route === '/editProfileImage') {
-      sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (data) {
+      sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (data) {
         ReactDOM.render( /*#__PURE__*/React.createElement(AccountPage, {
-          csrf: csrf,
+          csrf: globalCSRF,
           user: data,
           time: Date.now()
         }), document.querySelector('#accountDisplay'));
       });
     } else if (route === '/editChatImage') {
-      sendAjax('GET', "/getChatRoom?_csrf=".concat(csrf, "&id=").concat(chatId), null, function (data) {
+      sendAjax('GET', "/getChatRoom?_csrf=".concat(globalCSRF, "&id=").concat(chatId), null, function (data) {
         ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
-          csrf: csrf,
+          csrf: globalCSRF,
           chat: data.chat,
           time: Date.now()
         }), document.querySelector('#chatEditor'));
@@ -66,16 +67,16 @@ var handleImageUpload = function handleImageUpload(e, csrf, route, chatId) {
 
 var updateChatName = function updateChatName(e, csrf, chatId) {
   console.log(e.target.value);
-  sendAjax('POST', "/changeChatName?_csrf=".concat(csrf, "&chatId=").concat(chatId, "&title=").concat(e.target.value), null, function (data) {
+  sendAjax('POST', "/changeChatName?_csrf=".concat(globalCSRF, "&chatId=").concat(chatId, "&title=").concat(e.target.value), null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
-      csrf: csrf,
+      csrf: globalCSRF,
       chat: data.chat,
       time: Date.now()
     }), document.querySelector('#chatEditor'));
-    loadChatRoomsFromServer(csrf);
-    sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (result) {
+    loadChatRoomsFromServer(globalCSRF);
+    sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (result) {
       ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
-        csrf: csrf,
+        csrf: globalCSRF,
         title: data.chat.name,
         messages: data.chat.messages,
         chatId: chatId,
@@ -86,14 +87,15 @@ var updateChatName = function updateChatName(e, csrf, chatId) {
 };
 
 var handleChatDelete = function handleChatDelete(e, csrf, chatId) {
-  sendAjax('POST', "/deleteChat?_csrf=".concat(csrf, "&chatId=").concat(chatId), null, function (data) {
+  sendAjax('POST', "/deleteChat?_csrf=".concat(globalCSRF, "&chatId=").concat(chatId), null, function (data) {
     if (data.response === "success") {
       closeForm("#chatEditor");
-      loadChatRoomsFromServer(csrf);
+      loadChatRoomsFromServer(globalCSRF);
       ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
-        csrf: csrf
+        csrf: globalCSRF
       }), document.querySelector('#activeChat'));
-      sendAjax('POST', "/updateUsers?_csrf=".concat(csrf, "&chatId=").concat(chatId), null, null);
+      sendAjax('POST', "/updateUsers?_csrf=".concat(globalCSRF, "&chatId=").concat(chatId), null, null);
+      socket.emit('update chats');
     }
   });
 };
@@ -352,14 +354,13 @@ var sendMessage = function sendMessage(e, chatId, csrf) {
 
       if (e.target.value.trim() !== "") {
         var msg = e.target.value.trim();
-        var serializedField = "_csrf=".concat(csrf, "&message=").concat(e.target.value.trim());
+        var serializedField = "_csrf=".concat(globalCSRF, "&message=").concat(e.target.value.trim());
         sendAjax('POST', '/createMessage', serializedField, function (data) {
-          sendAjax('GET', '/getUser', "_csrf=".concat(csrf), function (user) {
-            var serializedFieldChat = "message=".concat(data.messageData.text, "&user=").concat(data.messageData.user, "&messageId=").concat(data.messageData.messageId, "&chatId=").concat(chatId, "&image=").concat(user.user.image, "&_csrf=").concat(csrf);
+          sendAjax('GET', '/getUser', "_csrf=".concat(globalCSRF), function (user) {
+            var serializedFieldChat = "message=".concat(data.messageData.text, "&user=").concat(data.messageData.user, "&messageId=").concat(data.messageData.messageId, "&chatId=").concat(chatId, "&image=").concat(user.user.image, "&_csrf=").concat(globalCSRF);
             sendAjax('POST', '/updateChat', serializedFieldChat, function (response) {
               loadChat(chatId, csrf);
-              clearChat(); // let socket = io();
-
+              clearChat();
               socket.emit('chat message', msg);
             });
           });
@@ -371,9 +372,9 @@ var sendMessage = function sendMessage(e, chatId, csrf) {
 
 var loadChatRoomsFromServer = function loadChatRoomsFromServer(csrf) {
   sendAjax('GET', '/getChatRooms', null, function (data) {
-    sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (user) {
+    sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (user) {
       ReactDOM.render( /*#__PURE__*/React.createElement(ChatList, {
-        csrf: csrf,
+        csrf: globalCSRF,
         chats: data.chats,
         currentUser: user.user._id
       }), document.querySelector("#chats"));
@@ -382,10 +383,10 @@ var loadChatRoomsFromServer = function loadChatRoomsFromServer(csrf) {
 };
 
 var loadChat = function loadChat(chatId, csrf) {
-  var serializedField = "id=".concat(chatId, "&_csrf=").concat(csrf);
+  var serializedField = "id=".concat(chatId, "&_csrf=").concat(globalCSRF);
   sendAjax('GET', "/getChatRoom?".concat(serializedField), null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
-      csrf: csrf,
+      csrf: globalCSRF,
       title: data.chat.name,
       messages: data.chat.messages,
       chatId: chatId,
@@ -393,7 +394,7 @@ var loadChat = function loadChat(chatId, csrf) {
     }), document.querySelector("#activeChat"));
     var chat = document.querySelector("#chatSection");
     chat.scrollTop = chat.scrollHeight;
-    sendAjax('POST', "/setChat?chatId=".concat(chatId, "&_csrf=").concat(csrf), null, null);
+    sendAjax('POST', "/setChat?chatId=".concat(chatId, "&_csrf=").concat(globalCSRF), null, null);
   });
 };
 
@@ -420,7 +421,7 @@ var AccountTabFooter = function AccountTabFooter(props) {
 var getUser = function getUser(csrf) {
   sendAjax('GET', "/getUser", null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(AccountTabFooter, {
-      csrf: csrf,
+      csrf: globalCSRF,
       user: data.user
     }), document.querySelector('#accountFooter'));
   });
@@ -429,7 +430,7 @@ var getUser = function getUser(csrf) {
 var EditChatWindow = function EditChatWindow(csrf, props) {
   //React Element #7
   ReactDOM.render( /*#__PURE__*/React.createElement(ChatEditPage, {
-    csrf: csrf,
+    csrf: globalCSRF,
     chat: props,
     time: Date.now()
   }), document.querySelector('#chatEditor'));
@@ -440,16 +441,16 @@ var setup = function setup(csrf) {
   //React Element #1
 
   ReactDOM.render( /*#__PURE__*/React.createElement(ChatList, {
-    csrf: csrf,
+    csrf: globalCSRF,
     chats: []
   }), document.querySelector('#chats')); //React Element #2
 
-  sendAjax('GET', "/getChat?_csrf=".concat(csrf), null, function (data) {
+  sendAjax('GET', "/getChat?_csrf=".concat(globalCSRF), null, function (data) {
     if (data.activeChat) {
-      loadChat(data.activeChat, csrf);
+      loadChat(data.activeChat, globalCSRF);
     } else {
       ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
-        csrf: csrf
+        csrf: globalCSRF
       }), document.querySelector('#activeChat'));
       var chat = document.querySelector("#chatSection");
       chat.scrollTop = chat.scrollHeight;
@@ -457,23 +458,23 @@ var setup = function setup(csrf) {
   }); //React Element #3
 
   ReactDOM.render( /*#__PURE__*/React.createElement(Ads, {
-    csrf: csrf
+    csrf: globalCSRF
   }), document.querySelector('#ads')); //React Element #4
 
-  getUser(csrf); //React Element #5
+  getUser(globalCSRF); //React Element #5
 
   ReactDOM.render( /*#__PURE__*/React.createElement(ChatForm, {
-    csrf: csrf
+    csrf: globalCSRF
   }), document.querySelector('#chatCreator')); //React Element #6
 
-  sendAjax('GET', "/getUser?_csrf=".concat(csrf), null, function (data) {
+  sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (data) {
     ReactDOM.render( /*#__PURE__*/React.createElement(AccountPage, {
-      csrf: csrf,
+      csrf: globalCSRF,
       user: data,
       time: Date.now()
     }), document.querySelector('#accountDisplay'));
   });
-  loadChatRoomsFromServer(csrf);
+  loadChatRoomsFromServer(globalCSRF);
 };
 
 var getToken = function getToken() {
@@ -490,6 +491,24 @@ socket.on('chat message', function (msg) {
   sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (user) {
     loadChat(user.user.chat, globalCSRF);
   });
+});
+socket.on('update chats', function () {
+  sendAjax('GET', "/getUser?_csrf=".concat(globalCSRF), null, function (user) {
+    if (user.activeChat) {
+      loadChat(user.activeChat, globalCSRF);
+    } else {
+      ReactDOM.render( /*#__PURE__*/React.createElement(Chat, {
+        csrf: globalCSRF
+      }), document.querySelector('#activeChat'));
+      var chat = document.querySelector("#chatSection");
+      chat.scrollTop = chat.scrollHeight;
+    }
+  });
+  loadChatRoomsFromServer(globalCSRF);
+});
+socket.on('chat created', function () {
+  console.log(globalCSRF);
+  loadChatRoomsFromServer(globalCSRF);
 });
 "use strict";
 
